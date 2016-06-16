@@ -56,6 +56,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import time
 
 import numpy as np
@@ -80,6 +81,7 @@ class PTBModel(object):
   def __init__(self, is_training, config):
     self.batch_size = batch_size = config.batch_size
     self.num_steps = num_steps = config.num_steps
+    self.global_step = tf.Variable(0, trainable=False)
     size = config.hidden_size
     vocab_size = config.vocab_size
 
@@ -141,7 +143,8 @@ class PTBModel(object):
     grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),
                                       config.max_grad_norm)
     optimizer = tf.train.GradientDescentOptimizer(self.lr)
-    self._train_op = optimizer.apply_gradients(zip(grads, tvars))
+    self._train_op = optimizer.apply_gradients(zip(grads, tvars), global_step=self.global_step)
+    self.saver = tf.train.Saver(tf.all_variables())
 
   def assign_lr(self, session, lr_value):
     session.run(tf.assign(self.lr, lr_value))
@@ -259,7 +262,9 @@ def run_epoch(session, m, data, eval_op, verbose=False):
       print("%.3f perplexity: %.3f speed: %.0f wps" %
             (step * 1.0 / epoch_size, np.exp(costs / iters),
              iters * m.batch_size / (time.time() - start_time)))
-
+      if verbose:
+        checkpoint_path = os.path.join("/Users/tenylong/Documents/RNN/ptb_model.ckpt")
+        m.saver.save(session, checkpoint_path, global_step=m.global_step)
   return np.exp(costs / iters)
 
 
